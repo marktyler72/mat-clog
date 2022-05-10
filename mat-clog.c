@@ -158,10 +158,7 @@ int main() {
     veml6030_inst_t* als = hw_VEML6030_init(i2c_bus, VEML6030_I2C_ADDR_DEFAULT, true);
     logger(" -- Ambient light sensor (VEML6030) ready", false);
 
-    hw_BME280_init(i2c_bus);
-    // retrieve fixed compensation params
-    hw_BME280_calib_param params;
-    hw_BME280_get_calib_params(i2c_bus, &params);
+    bme280_inst_t* bme280 = hw_BME280_init(i2c_bus);
     logger(" -- Atmospheric sensor (BME280) ready", false);
 
     float light, temperature, pressure, humidity;
@@ -177,7 +174,7 @@ int main() {
         light = hw_VEML6030_read_lux(als);
         printf("Light @ auto range = %f\n", light);
 
-        hw_BME280_read_values(i2c_bus, &params, &temperature, &pressure, &humidity);
+        hw_BME280_read_values(bme280, &temperature, &pressure, &humidity);
         sprintf(results_str, "%.1f Lux, %.1f C, %.1f hPa, %.1f %%RH", 
                     light, temperature, pressure, humidity);
         logger(results_str, true);

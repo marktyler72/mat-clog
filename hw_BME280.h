@@ -53,6 +53,8 @@
 #define BME280_DEV_FORCED 1
 #define BME280_DEV_NORMAL 3
 
+#define BME280_BUSY_MASK _u(0x08)
+
 typedef struct {
     // temperature params
     uint16_t dig_t1;
@@ -78,15 +80,22 @@ typedef struct {
     int16_t dig_h5;
     int8_t dig_h6;
 
-}  hw_BME280_calib_param;
+}  bme280_calib_param_t;
 
-void hw_BME280_init(i2c_inst_t* i2c_bus);
-void hw_BME280_get_calib_params(i2c_inst_t* i2c_bus,  hw_BME280_calib_param* params);
-void hw_BME280_set_data_acq_options(i2c_inst_t* i2c_bus);
-void hw_BME280_read_raw(i2c_inst_t* i2c_bus, int32_t* temp, int32_t* pressure, int32_t* humidity);
-bool hw_BME280_is_busy(i2c_inst_t* i2c_bus);
-int32_t hw_BME280_convert_temp(int32_t adc_T, hw_BME280_calib_param* params);
-int32_t hw_BME280_convert_pressure(int32_t adc_P, int32_t adc_T, hw_BME280_calib_param* params);
-int32_t hw_BME280_convert_humidity(int32_t adc_H, int32_t adc_T, hw_BME280_calib_param* params);
-void hw_BME280_read_values(i2c_inst_t* i2c_bus, hw_BME280_calib_param* params, 
+typedef struct bme280_inst {
+    i2c_inst_t* i2c_bus;
+    uint8_t addr;
+    bme280_calib_param_t* calib;
+} bme280_inst_t;
+
+
+bme280_inst_t* hw_BME280_init(i2c_inst_t* i2c_bus);
+void hw_BME280_get_calib_params(bme280_inst_t* bme280);
+void hw_BME280_set_data_acq_options(bme280_inst_t* bme280);
+void hw_BME280_read_raw(bme280_inst_t* bme280, int32_t* temp, int32_t* pressure, int32_t* humidity);
+bool hw_BME280_is_busy(bme280_inst_t* bme280);
+int32_t hw_BME280_convert_temp(bme280_inst_t* bme280, int32_t adc_T);
+int32_t hw_BME280_convert_pressure(bme280_inst_t* bme280, int32_t adc_P, int32_t adc_T);
+int32_t hw_BME280_convert_humidity(bme280_inst_t* bme280, int32_t adc_H, int32_t adc_T);
+void hw_BME280_read_values(bme280_inst_t* bme280, 
                             float* temperature, float* pressure, float* humidity);
