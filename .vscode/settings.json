@@ -14,4 +14,15 @@
                },
     },
     "cortex-debug.variableUseNaturalFormat": true,
+    "files.associations": {
+      "stdlib.h": "c",
+      "pico.h": "c",
+      "platform.h": "c",
+      "platform_defs.h": "c",
+      "error.h": "c",
+      "hw_i2c_bus.h": "c",
+      "i2c.h": "c",
+      "_default_types.h": "c",
+      "features.h": "c"
+    },
 }

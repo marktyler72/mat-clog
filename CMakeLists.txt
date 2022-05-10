@@ -19,7 +19,8 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(mat-clog mat-clog.c hw_i2c_bus.c hw_BME280.c)
+add_executable(mat-clog mat-clog.c hw_i2c_bus.c hw_BME280.c hw_VEML6030.c hw_config.c)
+add_subdirectory(no-OS-FatFS-SD-SPI-RPi-Pico/FatFs_SPI build)
 
 pico_set_program_name(mat-clog "mat-clog")
 pico_set_program_version(mat-clog "0.1")
@@ -35,7 +36,6 @@ target_link_libraries(mat-clog
         hardware_spi
         hardware_i2c
         hardware_rtc
-        )
+        FatFs_SPI)
 
 pico_add_extra_outputs(mat-clog)
-
