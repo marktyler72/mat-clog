@@ -81,7 +81,6 @@ uint16_t hw_VEML6030_auto_tune(veml6030_inst_t* veml6030) {
     }
 
     // If we have to, tune the integration time next
-//    if ((als_value & 0xE000) != 0) {         // If the sensor is already saturating start at the lowest integration time.
     if (als_value >  VEML6030_THRESH_HIGH) {         // If the sensor is already saturating start at the lowest integration time.
         integ_time_idx = -1;
         als_value = 0;
@@ -188,13 +187,8 @@ float hw_VEML6030_get_gain(veml6030_inst_t* veml6030)
 float hw_VEML6030_read_lux(veml6030_inst_t* veml6030) {
     uint16_t als_value;
     als_value = i2c_read16(veml6030->i2c_bus, veml6030->addr, VEML6030_REG_ALS);
-    printf("ALS value is %d\n", als_value);
     if (veml6030->auto_range && (als_value <= VEML6030_THRESH_LOW || als_value > VEML6030_THRESH_HIGH)) {
-        printf("Retuning\n");
-        printf("Old gain idx = %d, old integ time idx = %d\n", veml6030->curr_gain_idx, veml6030->curr_integ_time_idx);
         als_value = hw_VEML6030_auto_tune(veml6030);
-        printf("New gain idx = %d, new integ time idx = %d\n", veml6030->curr_gain_idx, veml6030->curr_integ_time_idx);
-        printf("ALS value is %d\n", als_value);
     }
 
     if (als_value == 65535) {
