@@ -1,15 +1,15 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "pico/util/datetime.h"
-#include "hardware/spi.h"
 #include "hardware/rtc.h"
-#include "ff.h"     // FatFs headers
-#include "f_util.h"
-#include "hw_config.h"
+#include "hardware/spi.h"
 
+#include "logger.h"
 #include "hw_i2c_bus.h"
+#include "hw_DS1307.h"
 #include "hw_BME280.h"
 #include "hw_VEML6030.h"
+#include "hw_VL53L1X.h"
 
 // SPI Defines
 // We are going to use SPI 0, and allocate it to the following GPIO pins
@@ -23,12 +23,9 @@
 // Led define
 #define PIN_LED PICO_DEFAULT_LED_PIN
 
-// Globals
-sd_card_t *SD_card_ptr;
-
 void init_spi() {
-    // SPI initialisation. This example will use SPI at 5MHz.
-    spi_init(SPI_PORT, 5000*1000);
+    // SPI initialisation.
+    spi_init(SPI_PORT, 5000*1000);  // Set to 5 MHz
     gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
     gpio_set_function(PIN_CS,   GPIO_FUNC_SIO);
     gpio_set_function(PIN_SCK,  GPIO_FUNC_SPI);
@@ -45,139 +42,80 @@ void init_led() {
     gpio_set_dir(PIN_LED, GPIO_OUT);
 }
 
-void init_sd_card() {
-    // Mount the SD card
-    SD_card_ptr = sd_get_by_num(0);
-    FRESULT status = f_mount(&SD_card_ptr->fatfs, SD_card_ptr->pcName, 1);
-    if (FR_OK != status) panic("f_mount error: %s (%d)\n", FRESULT_str(status), status);
-}
-
-static bool open_log_file(FIL *file_ptr) {
-    // Open a file for append on the SD card
-    datetime_t tim = {
-        .year = 2001,
-        .month = 01,
-        .day = 01,
-        .dotw = 0,
-        .hour = 0,
-        .min = 0,
-        .sec = 0
-        };
-
-    if (rtc_running()) {
-        rtc_get_datetime(&tim);
-    }
-
-    // Construct a filename of the form /data/yyyy-mm-dd/clog_hh.txt
-    // Create the appropriate directories if required.
-    char filename[64];
-    int n = snprintf(filename, sizeof filename, "/data");
-    FRESULT status = f_mkdir(filename);
-    if (status != FR_OK && status != FR_EXIST) {
-        printf("f_mkdir error: %s (%d)\n", FRESULT_str(status), status);
-        return false;
-    }
-
-    n += snprintf(filename + n, sizeof filename - n, "/%04d-%02d-%02d",
-                  tim.year, tim.month, tim.day);
-    status = f_mkdir(filename);
-    if (status != FR_OK && status != FR_EXIST) {
-        printf("f_mkdir error: %s (%d)\n", FRESULT_str(status), status);
-        return false;
-    }
-
-    n += snprintf(filename + n, sizeof filename - n, "/clog_%02d.txt", tim.hour);
-    status = f_open(file_ptr, filename, FA_OPEN_APPEND | FA_WRITE);
-    if (status != FR_OK && status != FR_EXIST) {
-        printf("f_open(%s) error: %s (%d)\n", filename, FRESULT_str(status), status);
-        return false;
-    }
-    // Put a header at the top of a new file.
-    if (f_size(file_ptr) == 0) {
-        if (f_printf(file_ptr, "# Timestamp        |  Temp      Press    Humidity\n") < 0) {
-            printf("f_printf error\n");
-            return false;
-        }
-    }
-    return true;
-}
-
-void logger(char* string, bool log_to_file) {
-    datetime_t tim;
-    char datetime_buf[80];
-    char* datetime_str = &datetime_buf[0];
-
-    if (rtc_running()) {
-        rtc_get_datetime(&tim);
-        sprintf(datetime_str, "%d-%02.2d-%02.2d %02.2d:%02.2d:%02.2d", 
-                tim.year, tim.month, tim.day, tim.hour, tim.min, tim.sec);
-    } else {
-        datetime_str = "                   ";
-    }
-
-    if (!log_to_file) {
-        printf("%s| %s\n", datetime_str, string);
-    } else {
-        FIL file_descriptor;
-        if (open_log_file(&file_descriptor)) {
-            f_printf(&file_descriptor, "%s| %s\n", datetime_str, string);
-            f_close(&file_descriptor);
-        }
-    }
-}
-
 int main() {
 
     stdio_init_all();
-    logger(" *** mat-clog ***", false);
-
-    // Initialise the real time clock.
-    rtc_init();
-    datetime_t tim = {
-        .year = 2022,
-        .month = 05,
-        .day = 01,
-        .dotw = 0,
-        .hour = 22,
-        .min = 18,
-        .sec = 50
-    };
-    rtc_set_datetime(&tim);
-    sleep_ms(100);
-
-    // Now init the rest of the hardware
-    logger("- Initialising hardware", false);
-    init_led();
-    logger(" -- Built-in LED ready", false);
-    init_sd_card();
-    logger(" -- SD Card mounted", false);
+    log_to(LOGGER_DEST_STDOUT, " *** mat-clog - version 1.0 ***");
 
     i2c_inst_t *i2c_bus = i2c_bus_init(0, 0, 0);
-    logger(" -- I2C bus ready", false);
+
+    ds1307_inst_t* rtc_backup = hw_DS1307_init(i2c_bus);
+    datetime_t now = {
+        .year = 2022,
+        .month = 05,
+        .day = 21,
+        .dotw = 0,
+        .hour = 19,
+        .min = 38,
+        .sec = 30
+    };
+    bool status;
+//    status = hw_DS1307_rtc_adjust(rtc_backup, &now);  // ** Uncomment this line to set the RTC backup to the time above.
+    status = hw_DS1307_rtc_now(rtc_backup, &now);
+
+    // Initialise the onboard real time clock and sync to the backup rtc.
+    rtc_init();
+    rtc_set_datetime(&now);
+    sleep_ms(100);
+
+    // Explain what we have done.
+    log_to(LOGGER_DEST_STDOUT, "- System setup");
+    log_to(LOGGER_DEST_STDOUT, "  -- I2C bus ready");
+    log_to(LOGGER_DEST_STDOUT, "  -- RTC backup clock read");
+    log_to(LOGGER_DEST_STDOUT, "  -- Internal clock set");
+
+    // Now init the rest of the hardware
+    log_to(LOGGER_DEST_STDOUT, "- Initialising hardware");
+    init_led();
+    log_to(LOGGER_DEST_STDOUT, "  -- Built-in LED ready");
+    init_sd_card();
+    log_to(LOGGER_DEST_STDOUT, "  -- SD Card mounted");
+
+
+    vl53l1x_inst_t* ranger = hw_VL53L1X_init(i2c_bus);
+    log_to(LOGGER_DEST_STDOUT, "  -- Distance sensor (VL53L1X) ready");
 
     veml6030_inst_t* als = hw_VEML6030_init(i2c_bus, VEML6030_I2C_ADDR_DEFAULT, true);
-    logger(" -- Ambient light sensor (VEML6030) ready", false);
+    log_to(LOGGER_DEST_STDOUT, "  -- Ambient light sensor (VEML6030) ready");
 
     bme280_inst_t* bme280 = hw_BME280_init(i2c_bus);
-    logger(" -- Atmospheric sensor (BME280) ready", false);
+    log_to(LOGGER_DEST_STDOUT, "  -- Atmospheric sensor (BME280) ready");
 
+    int range;
     float light, temperature, pressure, humidity;
     char results_buf[100];
     char* results_str = &results_buf[0];
+    vl53l1x_result_t range_res;
 
-    logger("- Starting data acquisition", false);
+    log_to(LOGGER_DEST_STDOUT, "- Starting data acquisition");
+    hw_VL53L1X_start_ranging(ranger);
 
     sleep_ms(250); // sleep so that data polling and register update don't collide
     while (true) {
         
         gpio_put(PIN_LED, 1);
+        if (hw_VL53L1X_get_distance(ranger, &range_res) == 0) {
+            range = (int) range_res.distance_mm;
+        } else {
+            range = -1;
+        }
+
         light = hw_VEML6030_read_lux(als);
-        printf("Light @ auto range = %f\n", light);
 
         hw_BME280_read_values(bme280, &temperature, &pressure, &humidity);
-        sprintf(results_str, "%.1f Lux, %.1f C, %.1f hPa, %.1f %%RH", 
-                    light, temperature, pressure, humidity);
-        logger(results_str, true);
+        sprintf(results_str, "%d mm, %.1f Lux, %.1f C, %.1f hPa, %.1f %%RH", 
+                    range, light, temperature, pressure, humidity);
+        log_to(LOGGER_DEST_BOTH, results_str);
 
         // poll every 30s
         sleep_ms(200);

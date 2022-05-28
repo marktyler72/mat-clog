@@ -14,8 +14,9 @@ bme280_inst_t* hw_BME280_init(i2c_inst_t* i2c_bus) {
     bme280->calib = &bme280_calib;
 
     // Check to see we have a BME280 at this address.
+    uint8_t reg = BME280_REG_CHIPID;
     uint8_t data;
-    if (i2c_readfrom_mem(bme280->i2c_bus, bme280->addr, BME280_REG_CHIPID, &data, sizeof data))
+    if (i2c_readfrom_mem(bme280->i2c_bus, bme280->addr, &reg, sizeof reg, &data, sizeof data))
     {
         if (data != BME280_BME_CHIPID) 
         {
@@ -61,8 +62,9 @@ void hw_BME280_set_data_acq_options(bme280_inst_t* bme280) {
 
 bool hw_BME280_is_busy(bme280_inst_t* bme280) {
     // returns true if the device is busy making a measurement.
+    uint8_t reg = BME280_REG_STATUS;
     uint8_t status;
-    i2c_readfrom_mem(bme280->i2c_bus, bme280->addr, BME280_REG_STATUS, &status, 1);
+    i2c_readfrom_mem(bme280->i2c_bus, bme280->addr, &reg, 1, &status, 1);
     bool busy = (status & BME280_BUSY_MASK) >> 3;
     return busy;
 }
@@ -73,9 +75,10 @@ void hw_BME280_get_calib_params(bme280_inst_t* bme280) {
     // there are 3 temperature params, and 9 pressure params, each with a LSB
     // and MSB register, so we read from 24 registers
 
+    uint8_t reg = BME280_REG_DIG_T1_LSB;
     uint8_t buf[BME280_NUM_TP_CALIB_BYTES] = { 0 };
     
-    i2c_readfrom_mem(bme280->i2c_bus, bme280->addr, BME280_REG_DIG_T1_LSB, buf, BME280_NUM_TP_CALIB_BYTES);
+    i2c_readfrom_mem(bme280->i2c_bus, bme280->addr, &reg, 1, buf, BME280_NUM_TP_CALIB_BYTES);
 
     // store these in a struct for later use
     bme280_calib_param_t* calib = bme280->calib;
@@ -95,12 +98,14 @@ void hw_BME280_get_calib_params(bme280_inst_t* bme280) {
     calib->dig_p9 = (int16_t)(buf[23] << 8) | buf[22];
 
     // now get the adc_H calibration parameters.
+    reg = BME280_REG_DIG_H1;
     uint8_t buf1[BME280_NUM_H_CALIB_BYTES] = { 0 };
     
-    i2c_readfrom_mem(bme280->i2c_bus, bme280->addr, BME280_REG_DIG_H1, buf1, 1);
-    calib->dig_h1 = buf[0];
+    i2c_readfrom_mem(bme280->i2c_bus, bme280->addr, &reg, 1, buf1, 1);
+    calib->dig_h1 = buf1[0];
 
-    i2c_readfrom_mem(bme280->i2c_bus, bme280->addr, BME280_REG_DIG_H2, buf1, BME280_NUM_H_CALIB_BYTES);
+    reg = BME280_REG_DIG_H2;
+    i2c_readfrom_mem(bme280->i2c_bus, bme280->addr, &reg, 1, buf1, BME280_NUM_H_CALIB_BYTES);
     calib->dig_h2 = (int16_t)(buf1[1] << 8) | buf1[0];
     calib->dig_h3 = buf1[2];
     calib->dig_h4 = (int16_t)(buf1[3] << 4) | (buf1[4] & 0xF);
@@ -122,8 +127,9 @@ void hw_BME280_read_raw(bme280_inst_t* bme280, int32_t* adc_T, int32_t* adc_P, i
     }
     //printf(" Spins = %d\n", spins);
 
+    uint8_t reg = BME280_REG_PRESSURE_MSB;
     uint8_t buf[8];
-    i2c_readfrom_mem(bme280->i2c_bus, bme280->addr, BME280_REG_PRESSURE_MSB, buf, 8);
+    i2c_readfrom_mem(bme280->i2c_bus, bme280->addr, &reg, 1, buf, 8);
 
     // convert the bytes to two 20 bit values and one 16 bit value.
     // store each in a 32 bit signed integer for conversion

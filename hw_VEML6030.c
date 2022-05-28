@@ -1,7 +1,6 @@
 // hw_VEML6030.c - Functions to access and control the PiicoDev VEML6030 Atmospheric sensor.
 
 #include <stdio.h>
-#include <math.h>
 #include "pico/stdlib.h"
 #include "hw_VEML6030.h"
 
@@ -19,7 +18,7 @@ veml6030_inst_t* hw_VEML6030_init(i2c_inst_t* i2c_bus, uint8_t address, bool aut
     }
 
     // Power on the device and initialise the gain and integration time.
-    i2c_write16(veml6030->i2c_bus, veml6030->addr, VEML6030_REG_ALS_CONF, VEML6030_ON);
+    i2c_write16(veml6030->i2c_bus, veml6030->addr, VEML6030_REG_ALS_CONF, VEML6030_ON, BYTEORDER_MSB);
     sleep_ms(4);
 
     veml6030->auto_range = auto_range;
@@ -34,25 +33,25 @@ veml6030_inst_t* hw_VEML6030_init(i2c_inst_t* i2c_bus, uint8_t address, bool aut
 }
 
 bool hw_VEML6030_turn_off(veml6030_inst_t* veml6030) {
-  uint16_t config = i2c_read16(veml6030->i2c_bus, veml6030->addr, VEML6030_REG_ALS_CONF);
+  uint16_t config = i2c_read16(veml6030->i2c_bus, veml6030->addr, VEML6030_REG_ALS_CONF, BYTEORDER_MSB);
   config &= VEML6030_ONOFF_MASK;
   config |= VEML6030_OFF;
-  return i2c_write16(veml6030->i2c_bus, veml6030->addr, VEML6030_REG_ALS_CONF, config);
+  return i2c_write16(veml6030->i2c_bus, veml6030->addr, VEML6030_REG_ALS_CONF, config, BYTEORDER_MSB);
 }
 
 bool hw_VEML6030_turn_on(veml6030_inst_t* veml6030) {
-  uint16_t config = i2c_read16(veml6030->i2c_bus, veml6030->addr, VEML6030_REG_ALS_CONF);
+  uint16_t config = i2c_read16(veml6030->i2c_bus, veml6030->addr, VEML6030_REG_ALS_CONF, BYTEORDER_MSB);
   config &= VEML6030_ONOFF_MASK;
-  return i2c_write16(veml6030->i2c_bus, veml6030->addr, VEML6030_REG_ALS_CONF, config);
+  return i2c_write16(veml6030->i2c_bus, veml6030->addr, VEML6030_REG_ALS_CONF, config, BYTEORDER_MSB);
 }
 
 bool hw_VEML6030_apply_config_parameter(veml6030_inst_t* veml6030, uint16_t mask, uint16_t param) {
     hw_VEML6030_turn_off(veml6030);
-    uint16_t config = i2c_read16(veml6030->i2c_bus, veml6030->addr, VEML6030_REG_ALS_CONF);
+    uint16_t config = i2c_read16(veml6030->i2c_bus, veml6030->addr, VEML6030_REG_ALS_CONF, BYTEORDER_MSB);
     config &= ~mask;
     config |= param;
     config &= VEML6030_ONOFF_MASK;
-    return i2c_write16(veml6030->i2c_bus, veml6030->addr, VEML6030_REG_ALS_CONF, config);
+    return i2c_write16(veml6030->i2c_bus, veml6030->addr, VEML6030_REG_ALS_CONF, config, BYTEORDER_MSB);
 }
 
 uint16_t hw_VEML6030_auto_tune(veml6030_inst_t* veml6030) {
@@ -69,7 +68,7 @@ uint16_t hw_VEML6030_auto_tune(veml6030_inst_t* veml6030) {
     while (!finished) {
         hw_VEML6030_set_gain(veml6030, veml6030_gains[gain_idx].gain);
         sleep_ms(integ_time_ms + 50);
-        als_value = i2c_read16(veml6030->i2c_bus, veml6030->addr, VEML6030_REG_ALS);
+        als_value = i2c_read16(veml6030->i2c_bus, veml6030->addr, VEML6030_REG_ALS, BYTEORDER_MSB);
         if (als_value >  VEML6030_THRESH_LOW) {
             finished = true;
         } else {
@@ -94,7 +93,7 @@ uint16_t hw_VEML6030_auto_tune(veml6030_inst_t* veml6030) {
             integ_time_ms = veml6030_int_times[integ_time_idx].integ_time_ms;
             hw_VEML6030_set_integration_time(veml6030, veml6030_int_times[integ_time_idx].integ_time_ms);
             sleep_ms(integ_time_ms + 50);
-            als_value = i2c_read16(veml6030->i2c_bus, veml6030->addr, VEML6030_REG_ALS);
+            als_value = i2c_read16(veml6030->i2c_bus, veml6030->addr, VEML6030_REG_ALS, BYTEORDER_MSB);
             if (als_value >  VEML6030_THRESH_LOW) {
                 finished = true;
             } else {
@@ -133,7 +132,7 @@ bool hw_VEML6030_set_integration_time(veml6030_inst_t* veml6030, uint16_t integ_
 
 uint16_t hw_VEML6030_get_integration_time(veml6030_inst_t* veml6030)
 {
-    uint16_t config = i2c_read16(veml6030->i2c_bus, veml6030->addr, VEML6030_REG_ALS_CONF);
+    uint16_t config = i2c_read16(veml6030->i2c_bus, veml6030->addr, VEML6030_REG_ALS_CONF, BYTEORDER_MSB);
     uint16_t code = config & VEML6030_REG_CONF_INT_TIME_MASK;
 
     veml6030->curr_integ_time_idx = (VEML6030_NUM_INT_TIME_STEPS)-1;
@@ -169,7 +168,7 @@ bool hw_VEML6030_set_gain(veml6030_inst_t* veml6030, float gain)
 
 float hw_VEML6030_get_gain(veml6030_inst_t* veml6030)
 {
-    uint16_t config = i2c_read16(veml6030->i2c_bus, veml6030->addr, VEML6030_REG_ALS_CONF);
+    uint16_t config = i2c_read16(veml6030->i2c_bus, veml6030->addr, VEML6030_REG_ALS_CONF, BYTEORDER_MSB);
     uint16_t code = config & VEML6030_REG_CONF_GAIN_MASK;
 
     veml6030->curr_gain_idx = (VEML6030_NUM_GAIN_STEPS)-1;
@@ -186,7 +185,7 @@ float hw_VEML6030_get_gain(veml6030_inst_t* veml6030)
 
 float hw_VEML6030_read_lux(veml6030_inst_t* veml6030) {
     uint16_t als_value;
-    als_value = i2c_read16(veml6030->i2c_bus, veml6030->addr, VEML6030_REG_ALS);
+    als_value = i2c_read16(veml6030->i2c_bus, veml6030->addr, VEML6030_REG_ALS, BYTEORDER_MSB);
     if (veml6030->auto_range && (als_value <= VEML6030_THRESH_LOW || als_value > VEML6030_THRESH_HIGH)) {
         als_value = hw_VEML6030_auto_tune(veml6030);
     }
@@ -196,7 +195,7 @@ float hw_VEML6030_read_lux(veml6030_inst_t* veml6030) {
     } else {
         float lux = (float) als_value * veml6030->lux_corr_factor;
         if (lux > 100.0) {
-            lux = 6.0135e-13 * pow(lux, 4) - 9.3924e-9 * pow(lux,3) + 8.1488e-5 * lux*lux + 1.0023 * lux; 
+            lux = 6.0135e-13*lux*lux*lux*lux - 9.3924e-9*lux*lux*lux + 8.1488e-5 * lux*lux + 1.0023 * lux; 
         }
         return lux;
     }
