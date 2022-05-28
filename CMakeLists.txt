@@ -19,7 +19,7 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(mat-clog mat-clog.c hw_i2c_bus.c hw_BME280.c hw_VEML6030.c hw_config.c)
+add_executable(mat-clog mat-clog.c logger.c hw_i2c_bus.c hw_BME280.c hw_VEML6030.c hw_VL53L1X.c hw_DS1307.c hw_config.c)
 add_subdirectory(no-OS-FatFS-SD-SPI-RPi-Pico/FatFs_SPI build)
 
 pico_set_program_name(mat-clog "mat-clog")
